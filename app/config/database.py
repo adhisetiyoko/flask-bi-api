@@ -1,5 +1,5 @@
 import pymysql
-from config import config
+from app.config.config import config
 import os
 
 # Tentukan environment
