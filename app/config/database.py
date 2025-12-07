@@ -7,11 +7,7 @@ root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-import config
-
-# Tentukan environment
-env = os.getenv("FLASK_ENV", "development")
-Config = config.get(env)
+from config import Config  # ← Langsung import class Config
 
 def get_db_connection():
     """Membuat koneksi database MySQL berdasarkan config"""
