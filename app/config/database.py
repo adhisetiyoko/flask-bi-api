@@ -1,65 +1,56 @@
+import pymysql
+from config import config
 import os
 
-class Config:
-    """Base configuration"""
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    
-    # MySQL Configuration
-    MYSQL_HOST = (
-        os.environ.get("MYSQLHOST") or  # Railway
-        os.environ.get("MYSQL_HOST") or  # Local
-        "localhost"
-    )
+# Tentukan environment
+env = os.getenv("FLASK_ENV", "development")
+Config = config.get(env)
 
-    MYSQL_USER = (
-        os.environ.get("MYSQLUSER") or 
-        os.environ.get("MYSQL_USER") or
-        "root"
-    )
-
-    MYSQL_PASSWORD = (
-        os.environ.get("MYSQLPASSWORD") or 
-        os.environ.get("MYSQL_PASSWORD") or
-        ""
-    )
-
-    MYSQL_DB = (
-        os.environ.get("MYSQLDATABASE") or 
-        os.environ.get("MYSQL_DB") or
-        "simbok_db"
-    )
-
-    MYSQL_PORT = int(
-        os.environ.get("MYSQLPORT") or 
-        os.environ.get("MYSQL_PORT") or
-        3306
-    )
-
-    MYSQL_CURSORCLASS = 'DictCursor'
-
-    # CORS
-    CORS_ORIGINS = ["*"]
+def get_db_connection():
+    """Membuat koneksi database MySQL berdasarkan config"""
+    try:
+        connection = pymysql.connect(
+            host=Config.MYSQL_HOST,
+            user=Config.MYSQL_USER,
+            password=Config.MYSQL_PASSWORD,
+            database=Config.MYSQL_DB,
+            port=Config.MYSQL_PORT,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return connection
+    except Exception as e:
+        print("DATABASE CONNECTION ERROR:", e)
+        return None
 
 
-class DevelopmentConfig(Config):
-    """Development configuration"""
-    DEBUG = True
+def query(sql, params=None):
+    """SELECT query"""
+    conn = get_db_connection()
+    if not conn:
+        return None
 
-    # Jika ingin override khusus lokal, boleh:
-    MYSQL_HOST = os.environ.get("MYSQL_HOST", Config.MYSQL_HOST)
-    MYSQL_USER = os.environ.get("MYSQL_USER", Config.MYSQL_USER)
-    MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", Config.MYSQL_PASSWORD)
-    MYSQL_DB = os.environ.get("MYSQL_DB", Config.MYSQL_DB)
-    MYSQL_PORT = int(os.environ.get("MYSQL_PORT", Config.MYSQL_PORT))
-
-
-class ProductionConfig(Config):
-    """Production configuration"""
-    DEBUG = False
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            result = cursor.fetchall()
+        return result
+    finally:
+        conn.close()
 
 
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'default': DevelopmentConfig
-}
+def execute(sql, params=None):
+    """INSERT/UPDATE/DELETE"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+        conn.commit()
+        return True
+    except Exception as e:
+        print("DATABASE EXECUTION ERROR:", e)
+        return False
+    finally:
+        conn.close()
