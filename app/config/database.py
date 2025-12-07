@@ -4,7 +4,7 @@ class Config:
     """Base configuration"""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
     
-    # MySQL Configuration
+    # MySQL Configuration - Railway format
     MYSQL_HOST = os.environ.get("MYSQLHOST", "localhost")
     MYSQL_USER = os.environ.get("MYSQLUSER", "root")
     MYSQL_PASSWORD = os.environ.get("MYSQLPASSWORD", "")
@@ -29,7 +29,6 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    # Production akan pakai Config base (MYSQLHOST, MYSQLUSER, dll dari Railway)
 
 config = {
     'development': DevelopmentConfig,
