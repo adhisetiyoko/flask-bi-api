@@ -5,7 +5,7 @@ import os
 
 # Tentukan environment
 env = os.getenv("FLASK_ENV", "development")
-Config = config.get(env)
+Config = Config.get(env)
 
 def get_db_connection():
     """Membuat koneksi database MySQL berdasarkan config"""
