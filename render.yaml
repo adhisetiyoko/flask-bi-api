@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: flask-bi-api
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn baru:app
-    plan: free
