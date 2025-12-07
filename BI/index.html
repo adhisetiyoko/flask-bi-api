@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Ongkir Lokal - Delivery Pricing</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow-y: auto;
+        }
+        
+        .map-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .search-results.show {
+            display: block;
+        }
+        
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        
+        .search-result-item:hover {
+            background: #f8f9ff;
+        }
+        
+        .search-result-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .search-result-address {
+            color: #666;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .btn-small {
+            flex: 1;
+            padding: 8px;
+            background: #f0f4ff;
+            border: 1px solid #667eea;
+            color: #667eea;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-small:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-header {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .result-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .result-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .price-total {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .price-total-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .price-total-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        
+        .road-list {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .road-list h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .road-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .road-list li {
+            padding: 5px 0;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .road-list li:before {
+            content: "🛣️ ";
+            margin-right: 5px;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .map-instruction {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-size: 13px;
+            color: #666;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .map-instruction.show {
+            display: block;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .info-box {
+            background: #f0f4ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #667eea;
+        }
+        
+        .location-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            display: none;
+        }
+        
+        .location-display.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🚚 Cek Ongkir Lokal</h1>
+            <p class="subtitle">Sistem perhitungan ongkir dengan rute real</p>
+            
+            <div class="info-box">
+                💡 <strong>Tips:</strong>
+                <br>• Ketik nama tempat di search box
+                <br>• Klik "Gunakan Lokasi Saya"
+                <br>• Atau klik langsung di peta
+            </div>
+            
+            <form id="pricingForm">
+                <div class="form-group">
+                    <label>📍 Lokasi Penjemputan</label>
+                    <input type="text" id="origin_search" placeholder="Ketik nama tempat atau alamat..." autocomplete="off">
+                    <div class="search-results" id="origin_results"></div>
+                    <div class="button-group">
+                        <button type="button" class="btn-small" onclick="useMyLocation('origin')">📍 Lokasi Saya</button>
+                        <button type="button" class="btn-small" onclick="toggleMapPicker('origin')">🗺️ Klik Peta</button>
+                    </div>
+                    <div class="location-display" id="origin_display"></div>
+                    <input type="hidden" id="origin_lat">
+                    <input type="hidden" id="origin_lng">
+                </div>
+                
+                <div class="form-group">
+                    <label>🎯 Lokasi Tujuan</label>
+                    <input type="text" id="dest_search" placeholder="Ketik nama tempat atau alamat..." autocomplete="off">
+                    <div class="search-results" id="dest_results"></div>
+                    <div class="button-group">
+                        <button type="button" class="btn-small" onclick="useMyLocation('dest')">📍 Lokasi Saya</button>
+                        <button type="button" class="btn-small" onclick="toggleMapPicker('dest')">🗺️ Klik Peta</button>
+                    </div>
+                    <div class="location-display" id="dest_display"></div>
+                    <input type="hidden" id="dest_lat">
+                    <input type="hidden" id="dest_lng">
+                </div>
+                
+                <div class="form-group">
+                    <label>🚗 Jenis Kendaraan</label>
+                    <select id="vehicle_type">
+                        <option value="motor">Motor</option>
+                        <option value="mobil">Mobil</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>🗺️ Preferensi Rute</label>
+                    <select id="route_preference">
+                        <option value="shortest">Jarak Terpendek (Hemat Ongkir)</option>
+                        <option value="fastest">Waktu Tercepat (Lebih Cepat)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="is_raining">
+                        <label for="is_raining" style="margin-bottom: 0;">🌧️ Sedang Hujan</label>
+                    </div>
+                </div>
+                
+                <button type="submit" id="submitBtn">Hitung Ongkir & Tampilkan Rute</button>
+            </form>
+            
+            <div class="loading" id="loading">
+                <p>⏳ Menghitung rute dan ongkir...</p>
+            </div>
+            
+            <div class="error" id="error"></div>
+            
+            <div class="result" id="result">
+                <div class="result-header">📊 Detail Pengiriman</div>
+                
+                <div class="result-item">
+                    <span class="result-label">Jarak Tempuh</span>
+                    <span class="result-value" id="distance">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Estimasi Waktu</span>
+                    <span class="result-value" id="duration">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Tier Harga</span>
+                    <span class="result-value" id="tier">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Tarif per KM</span>
+                    <span class="result-value" id="rate">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Biaya Dasar</span>
+                    <span class="result-value" id="base_price">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Biaya Jarak</span>
+                    <span class="result-value" id="distance_charge">-</span>
+                </div>
+                
+                <div class="result-item">
+                    <span class="result-label">Platform Fee (10%)</span>
+                    <span class="result-value" id="platform_fee">-</span>
+                </div>
+                
+                <div class="result-item" id="surge_info" style="display:none;">
+                    <span class="result-label">Surge Pricing</span>
+                    <span class="result-value" id="surge">-</span>
+                </div>
+                
+                <div class="price-total">
+                    <div class="price-total-label">💰 Total Ongkir</div>
+                    <div class="price-total-value" id="final_price">Rp 0</div>
+                </div>
+                
+                <div class="road-list" id="road_list" style="display:none;">
+                    <h4>🛣️ Jalan yang Dilalui</h4>
+                    <ul id="roads"></ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="map-container">
+            <div class="map-instruction" id="mapInstruction">
+                Klik pada peta untuk memilih lokasi
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([-7.7956, 110.3695], 12);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        let originMarker, destMarker, routeLine;
+        let mapPickerMode = null; // 'origin' or 'dest'
+        let searchTimeout;
+        
+        // Format rupiah
+        function formatRupiah(amount) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+        
+        // Search lokasi (Geocoding)
+        async function searchLocation(query, type) {
+            if (query.length < 3) {
+                document.getElementById(type + '_results').classList.remove('show');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/geocode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: query})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.results.length > 0) {
+                    displaySearchResults(data.results, type);
+                } else {
+                    document.getElementById(type + '_results').classList.remove('show');
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+            }
+        }
+        
+        // Tampilkan hasil pencarian
+        function displaySearchResults(results, type) {
+            const container = document.getElementById(type + '_results');
+            container.innerHTML = '';
+            
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <div class="search-result-name">${result.name}</div>
+                    <div class="search-result-address">${result.full_address}</div>
+                `;
+                item.onclick = () => selectLocation(result, type);
+                container.appendChild(item);
+            });
+            
+            container.classList.add('show');
+        }
+        
+        // Pilih lokasi dari hasil pencarian
+        function selectLocation(location, type) {
+            document.getElementById(type + '_search').value = location.name;
+            document.getElementById(type + '_lat').value = location.lat;
+            document.getElementById(type + '_lng').value = location.lng;
+            document.getElementById(type + '_results').classList.remove('show');
+            
+            // Tampilkan info lokasi
+            const display = document.getElementById(type + '_display');
+            display.innerHTML = `📍 ${location.full_address}<br>Lat: ${location.lat.toFixed(6)}, Lng: ${location.lng.toFixed(6)}`;
+            display.classList.add('show');
+            
+            // Tambahkan marker di peta
+            addMarkerToMap(location.lat, location.lng, type);
+        }
+        
+        // Tambah marker ke peta
+        function addMarkerToMap(lat, lng, type) {
+            const markerOptions = {
+                icon: L.divIcon({
+                    html: type === 'origin' ? '📍' : '🎯',
+                    className: 'custom-marker',
+                    iconSize: [30, 30]
+                })
+            };
+            
+            if (type === 'origin') {
+                if (originMarker) map.removeLayer(originMarker);
+                originMarker = L.marker([lat, lng], markerOptions).addTo(map);
+                originMarker.bindPopup('Lokasi Penjemputan').openPopup();
+            } else {
+                if (destMarker) map.removeLayer(destMarker);
+                destMarker = L.marker([lat, lng], markerOptions).addTo(map);
+                destMarker.bindPopup('Lokasi Tujuan').openPopup();
+            }
+            
+            map.setView([lat, lng], 14);
+        }
+        
+        // Gunakan lokasi GPS
+        function useMyLocation(type) {
+            if (!navigator.geolocation) {
+                alert('Browser Anda tidak mendukung Geolocation');
+                return;
+            }
+            
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Mencari...';
+            
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    // Reverse geocoding untuk dapat nama tempat
+                    try {
+                        const response = await fetch('/reverse-geocode', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({lat: lat, lng: lng})
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            document.getElementById(type + '_search').value = data.name;
+                            const display = document.getElementById(type + '_display');
+                            display.innerHTML = `📍 ${data.full_address}<br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+                            display.classList.add('show');
+                        }
+                    } catch (error) {
+                        console.error('Reverse geocoding error:', error);
+                    }
+                    
+                    document.getElementById(type + '_lat').value = lat;
+                    document.getElementById(type + '_lng').value = lng;
+                    
+                    addMarkerToMap(lat, lng, type);
+                    
+                    btn.disabled = false;
+                    btn.textContent = '📍 Lokasi Saya';
+                },
+                (error) => {
+                    alert('Gagal mendapatkan lokasi: ' + error.message);
+                    btn.disabled = false;
+                    btn.textContent = '📍 Lokasi Saya';
+                }
+            );
+        }
+        
+        // Toggle mode klik peta
+        function toggleMapPicker(type) {
+            const instruction = document.getElementById('mapInstruction');
+            
+            if (mapPickerMode === type) {
+                // Cancel mode
+                mapPickerMode = null;
+                instruction.classList.remove('show');
+            } else {
+                // Activate mode
+                mapPickerMode = type;
+                instruction.textContent = `Klik peta untuk memilih lokasi ${type === 'origin' ? 'penjemputan' : 'tujuan'}`;
+                instruction.classList.add('show');
+            }
+        }
+        
+        // Handle klik pada peta
+        map.on('click', async function(e) {
+            if (!mapPickerMode) return;
+            
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            const type = mapPickerMode;
+            
+            // Reverse geocoding
+            try {
+                const response = await fetch('/reverse-geocode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({lat: lat, lng: lng})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById(type + '_search').value = data.name;
+                    const display = document.getElementById(type + '_display');
+                    display.innerHTML = `📍 ${data.full_address}<br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+                    display.classList.add('show');
+                }
+            } catch (error) {
+                console.error('Reverse geocoding error:', error);
+            }
+            
+            document.getElementById(type + '_lat').value = lat;
+            document.getElementById(type + '_lng').value = lng;
+            
+            addMarkerToMap(lat, lng, type);
+            
+            // Turn off picker mode
+            mapPickerMode = null;
+            document.getElementById('mapInstruction').classList.remove('show');
+        });
+        
+        // Event listeners untuk search box dengan rate limiting
+        let lastSearchTime = 0;
+        const MIN_SEARCH_INTERVAL = 1000; // Minimal 1 detik antar search
+        
+        document.getElementById('origin_search').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const now = Date.now();
+                if (now - lastSearchTime >= MIN_SEARCH_INTERVAL) {
+                    searchLocation(e.target.value, 'origin');
+                    lastSearchTime = now;
+                }
+            }, 500); // Tunggu 500ms setelah user berhenti ketik
+        });
+        
+        document.getElementById('dest_search').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const now = Date.now();
+                if (now - lastSearchTime >= MIN_SEARCH_INTERVAL) {
+                    searchLocation(e.target.value, 'dest');
+                    lastSearchTime = now;
+                }
+            }, 500); // Tunggu 500ms setelah user berhenti ketik
+        });
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.form-group')) {
+                document.querySelectorAll('.search-results').forEach(el => {
+                    el.classList.remove('show');
+                });
+            }
+        });
+        
+        // Handle form submit
+        document.getElementById('pricingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const result = document.getElementById('result');
+            
+            // Validasi input
+            const originLat = document.getElementById('origin_lat').value;
+            const originLng = document.getElementById('origin_lng').value;
+            const destLat = document.getElementById('dest_lat').value;
+            const destLng = document.getElementById('dest_lng').value;
+            
+            if (!originLat || !originLng || !destLat || !destLng) {
+                error.textContent = '❌ Mohon pilih lokasi penjemputan dan tujuan terlebih dahulu!';
+                error.classList.add('show');
+                setTimeout(() => error.classList.remove('show'), 5000);
+                return;
+            }
+            
+            // Clear previous results
+            error.classList.remove('show');
+            result.classList.remove('show');
+            loading.classList.add('show');
+            submitBtn.disabled = true;
+            
+            // Remove previous route
+            if (routeLine) map.removeLayer(routeLine);
+            
+            const data = {
+                origin_lat: parseFloat(originLat),
+                origin_lng: parseFloat(originLng),
+                dest_lat: parseFloat(destLat),
+                dest_lng: parseFloat(destLng),
+                vehicle_type: document.getElementById('vehicle_type').value,
+                route_preference: document.getElementById('route_preference').value,
+                is_raining: document.getElementById('is_raining').checked
+            };
+            
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const res = await response.json();
+                
+                loading.classList.remove('show');
+                submitBtn.disabled = false;
+                
+                if (res.success) {
+                    result.classList.add('show');
+                    
+                    document.getElementById('distance').textContent = `${res.distance_km} km`;
+                    document.getElementById('duration').textContent = `${res.duration_minutes} menit`;
+                    document.getElementById('tier').textContent = res.tier_range;
+                    document.getElementById('rate').textContent = formatRupiah(res.rate_per_km);
+                    document.getElementById('base_price').textContent = formatRupiah(res.base_price);
+                    document.getElementById('distance_charge').textContent = formatRupiah(res.distance_charge);
+                    document.getElementById('platform_fee').textContent = formatRupiah(res.platform_fee);
+                    document.getElementById('final_price').textContent = formatRupiah(res.final_price);
+                    
+                    if (res.surge_multiplier > 1.0) {
+                        document.getElementById('surge_info').style.display = 'flex';
+                        document.getElementById('surge').textContent = `x${res.surge_multiplier} (${res.surge_reasons.join(', ')})`;
+                    } else {
+                        document.getElementById('surge_info').style.display = 'none';
+                    }
+                    
+                    if (res.road_names && res.road_names.length > 0) {
+                        document.getElementById('road_list').style.display = 'block';
+                        const roadsList = document.getElementById('roads');
+                        roadsList.innerHTML = '';
+                        res.road_names.forEach(road => {
+                            const li = document.createElement('li');
+                            li.textContent = road;
+                            roadsList.appendChild(li);
+                        });
+                    }
+                    
+                    // Draw route
+                    if (res.route_coordinates) {
+                        const latLngs = res.route_coordinates.map(coord => [coord[1], coord[0]]);
+                        
+                        routeLine = L.polyline(latLngs, {
+                            color: '#667eea',
+                            weight: 5,
+                            opacity: 0.7
+                        }).addTo(map);
+                        
+                        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+                    }
+                    
+                } else {
+                    error.textContent = '❌ ' + res.error;
+                    error.classList.add('show');
+                }
+                
+            } catch (err) {
+                loading.classList.remove('show');
+                submitBtn.disabled = false;
+                error.textContent = '❌ Error: ' + err.message;
+                error.classList.add('show');
+            }
+        });
+    </script>
+</body>
+</html>
