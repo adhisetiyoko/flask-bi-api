@@ -1,6 +1,13 @@
 import pymysql
-from app.config.config import config
 import os
+import sys
+
+# Tambahkan root project ke sys.path agar bisa import config.py dari root
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
+import config
 
 # Tentukan environment
 env = os.getenv("FLASK_ENV", "development")
@@ -22,13 +29,11 @@ def get_db_connection():
         print("DATABASE CONNECTION ERROR:", e)
         return None
 
-
 def query(sql, params=None):
     """SELECT query"""
     conn = get_db_connection()
     if not conn:
         return None
-
     try:
         with conn.cursor() as cursor:
             cursor.execute(sql, params)
@@ -37,13 +42,11 @@ def query(sql, params=None):
     finally:
         conn.close()
 
-
 def execute(sql, params=None):
     """INSERT/UPDATE/DELETE"""
     conn = get_db_connection()
     if not conn:
         return None
-
     try:
         with conn.cursor() as cursor:
             cursor.execute(sql, params)
