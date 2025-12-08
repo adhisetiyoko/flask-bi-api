@@ -337,12 +337,19 @@ def get_produk_detail(produk_id):
 
 
 # ==================== UPDATE ====================
+# Ganti endpoint UPDATE di file: app/routes/produk_routes.py
+
 @produk_bp.route('/produk/<int:produk_id>', methods=['PUT'])
 def update_produk(produk_id):
     """
     Endpoint untuk mengupdate produk cabai
+    Support multipart/form-data untuk upload foto baru
     """
     try:
+        print("=" * 50)
+        print(f"📝 UPDATE PRODUK ID: {produk_id}")
+        print("=" * 50)
+        
         # Get current user
         current_user = get_current_user()
         if not current_user:
@@ -371,32 +378,123 @@ def update_produk(produk_id):
                 'message': 'Anda tidak memiliki akses untuk mengubah produk ini'
             }), 403
 
-        # Ambil data dari request
-        data = request.get_json()
+        # Ambil data dari form (bukan JSON karena ada file upload)
+        nama_produk = request.form.get('nama_produk')
+        tingkat_kepedasan = request.form.get('tingkat_kepedasan')
+        kondisi = request.form.get('kondisi')
+        stok = request.form.get('stok')
+        satuan = request.form.get('satuan')
+        harga = request.form.get('harga_per_kg')
+        deskripsi = request.form.get('deskripsi')
+        status_produk = request.form.get('status_produk')
+        main_image_index = request.form.get('main_image_index', '0')
 
-        # Update query
+        print(f"📋 Data yang akan diupdate:")
+        print(f"   - Nama: {nama_produk}")
+        print(f"   - Tingkat Kepedasan: {tingkat_kepedasan}")
+        print(f"   - Kondisi: {kondisi}")
+        print(f"   - Stok: {stok} {satuan}")
+        print(f"   - Harga: {harga}")
+        print(f"   - Status: {status_produk}")
+
+        # Handle foto lama yang dipertahankan
+        existing_photos = []
+        i = 0
+        while True:
+            photo = request.form.get(f'existing_photos[{i}]')
+            if photo is None:
+                break
+            existing_photos.append(photo)
+            i += 1
+        
+        print(f"📷 Foto lama yang dipertahankan: {len(existing_photos)} foto")
+        for idx, photo in enumerate(existing_photos):
+            print(f"   {idx+1}. {photo}")
+
+        # Handle foto baru yang diupload
+        new_photo_paths = []
+        if 'new_photos' in request.files:
+            new_files = request.files.getlist('new_photos')
+            print(f"📸 Foto baru yang diupload: {len(new_files)} foto")
+            
+            for idx, file in enumerate(new_files):
+                if file and file.filename and allowed_file(file.filename):
+                    # Generate unique filename
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    ext = file.filename.rsplit('.', 1)[1].lower()
+                    filename = secure_filename(f"{current_user['id']}_{timestamp}_{idx}.{ext}")
+                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+                    
+                    # Buat folder jika belum ada
+                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                    
+                    # Simpan file
+                    file.save(filepath)
+                    new_photo_paths.append(filepath)
+                    print(f"   ✅ Foto baru {idx+1} disimpan: {filepath}")
+
+        # Gabungkan foto lama + foto baru
+        all_photos = existing_photos + new_photo_paths
+        foto_string = ','.join(all_photos) if all_photos else None
+
+        print(f"📦 Total foto setelah update: {len(all_photos)}")
+
+        # Hapus foto lama yang tidak dipertahankan
+        if produk['foto']:
+            old_photos = produk['foto'].split(',')
+            for old_photo in old_photos:
+                if old_photo not in existing_photos:
+                    if os.path.exists(old_photo):
+                        try:
+                            os.remove(old_photo)
+                            print(f"🗑️ Foto lama dihapus: {old_photo}")
+                        except Exception as e:
+                            print(f"⚠️ Gagal hapus foto: {e}")
+
+        # Build update query
         update_fields = []
         params = []
 
-        if 'nama_produk' in data:
+        if nama_produk:
             update_fields.append("nama_produk = %s")
-            params.append(data['nama_produk'])
+            params.append(nama_produk)
 
-        if 'deskripsi' in data:
-            update_fields.append("deskripsi = %s")
-            params.append(data['deskripsi'])
+        if deskripsi is not None:
+            # Buat deskripsi lengkap jika ada data tambahan
+            if tingkat_kepedasan or kondisi:
+                deskripsi_lengkap = f"{deskripsi}\n\n"
+                if tingkat_kepedasan:
+                    deskripsi_lengkap += f"Tingkat Kepedasan: {tingkat_kepedasan}\n"
+                if kondisi:
+                    deskripsi_lengkap += f"Kondisi: {kondisi}"
+                update_fields.append("deskripsi = %s")
+                params.append(deskripsi_lengkap)
+            else:
+                update_fields.append("deskripsi = %s")
+                params.append(deskripsi)
 
-        if 'harga_per_kg' in data:
+        if harga:
             update_fields.append("harga_per_kg = %s")
-            params.append(data['harga_per_kg'])
+            params.append(float(harga))
 
-        if 'stok' in data:
+        if stok:
+            # Konversi ke Kg jika perlu
+            stok_kg = float(stok)
+            if satuan == 'Ons':
+                stok_kg = stok_kg / 10
+            elif satuan == 'Gram':
+                stok_kg = stok_kg / 1000
+            
             update_fields.append("stok = %s")
-            params.append(data['stok'])
+            params.append(stok_kg)
 
-        if 'status_produk' in data:
+        if status_produk:
             update_fields.append("status_produk = %s")
-            params.append(data['status_produk'])
+            params.append(status_produk)
+
+        if foto_string is not None:
+            update_fields.append("foto = %s")
+            params.append(foto_string)
 
         if not update_fields:
             cursor.close()
@@ -405,25 +503,38 @@ def update_produk(produk_id):
                 'message': 'Tidak ada data yang diupdate'
             }), 400
 
+        # Execute update
         params.append(produk_id)
-        
         query = f"UPDATE produk SET {', '.join(update_fields)} WHERE id = %s"
+        
+        print(f"🔄 Executing query: {query}")
+        print(f"📊 Params: {params}")
+        
         cursor.execute(query, params)
         mysql.connection.commit()
+        
+        # Get updated produk
+        cursor.execute("SELECT * FROM produk WHERE id = %s", (produk_id,))
+        updated_produk = cursor.fetchone()
         cursor.close()
+
+        print(f"✅ Produk berhasil diupdate!")
+        print("=" * 50)
 
         return jsonify({
             'success': True,
-            'message': 'Produk berhasil diupdate'
+            'message': 'Produk berhasil diupdate',
+            'data': updated_produk
         }), 200
 
     except Exception as e:
         print(f"❌ Error in update_produk: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': f'Error: {str(e)}'
         }), 500
-
 
 # ==================== DELETE ====================
 @produk_bp.route('/produk/<int:produk_id>', methods=['DELETE'])
