@@ -183,3 +183,18 @@ def test_harga():
             "GET /harga/test"
         ]
     })
+
+# -------------------------------------------------
+# 🔹 CACHE MANAGEMENT (BARU)
+# -------------------------------------------------
+
+@harga_bp.route('/clear-cache', methods=['POST'])
+def clear_cache():
+    """
+    Endpoint untuk clear cache dan force refresh data
+    
+    Returns:
+        JSON response dengan status clear cache
+    """
+    result = bi_service.clear_cache()
+    return jsonify(result)
