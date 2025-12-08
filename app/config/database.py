@@ -2,12 +2,22 @@ import pymysql
 import os
 import sys
 
-# Tambahkan root project ke sys.path agar bisa import config.py dari root
+# Tambahkan root project ke sys.path
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
-from config import Config  # ← Langsung import class Config
+from config import Config
+
+# DEBUG: Print config values
+print("="*50)
+print("DATABASE CONFIG DEBUG:")
+print(f"MYSQL_HOST: {Config.MYSQL_HOST}")
+print(f"MYSQL_USER: {Config.MYSQL_USER}")
+print(f"MYSQL_DB: {Config.MYSQL_DB}")
+print(f"MYSQL_PORT: {Config.MYSQL_PORT}")
+print(f"MYSQL_PASSWORD: {'*' * len(Config.MYSQL_PASSWORD) if Config.MYSQL_PASSWORD else 'NOT SET'}")
+print("="*50)
 
 def get_db_connection():
     """Membuat koneksi database MySQL berdasarkan config"""
@@ -20,9 +30,10 @@ def get_db_connection():
             port=Config.MYSQL_PORT,
             cursorclass=pymysql.cursors.DictCursor
         )
+        print("✅ Database connection successful!")
         return connection
     except Exception as e:
-        print("DATABASE CONNECTION ERROR:", e)
+        print("❌ DATABASE CONNECTION ERROR:", e)
         return None
 
 def query(sql, params=None):
