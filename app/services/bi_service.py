@@ -1,6 +1,7 @@
 """
 app/services/bi_service.py
 Service untuk mengakses API Bank Indonesia (PIHPS)
+FIXED: Date sorting untuk selalu ambil tanggal terbaru
 """
 
 import requests
@@ -32,12 +33,26 @@ def create_session():
     
     return session
 
+def _date_sort_key(date_str: str) -> str:
+    """
+    ✅ FUNGSI BARU: Convert DD/MM/YYYY atau D/M/YYYY ke YYYY-MM-DD untuk sorting
+    Contoh: "7/12/2025" → "2025-12-07"
+    Ini fix masalah: "7/12/2025" dianggap lebih besar dari "06/12/2025" saat sort string
+    """
+    try:
+        parts = date_str.split('/')
+        day = parts[0].zfill(2)    # Tambah leading zero: "7" → "07"
+        month = parts[1].zfill(2)  # Tambah leading zero: "6" → "06"
+        year = parts[2]
+        return f"{year}-{month}-{day}"
+    except:
+        return "0000-00-00"  # Fallback untuk tanggal invalid
+
 def _get_date_range(start_date: Optional[str] = None, 
                     end_date: Optional[str] = None) -> tuple:
     """Generate date range jika tidak ada parameter tanggal"""
     if not start_date or not end_date:
         today = datetime.now()
-        # ✅ FIX: Gunakan range 30 hari untuk data lebih lengkap
         start_date_obj = today - timedelta(days=30)
         start_date = start_date_obj.strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
@@ -149,10 +164,14 @@ def get_harga_data(province_id: str = '14',
             if not date_keys:
                 continue
             
-            # Sort tanggal dari yang terbaru ke terlama
-            sorted_dates = sorted(date_keys, key=lambda x: x.split('/')[::-1], reverse=True)
+            # ✅ FIXED: Sort tanggal dengan benar menggunakan _date_sort_key
+            sorted_dates = sorted(date_keys, key=_date_sort_key, reverse=True)
             
-            # ✅ PERBAIKAN: Ambil harga terbaru yang ada (bukan hanya hari ini)
+            # Debug: Print untuk cabai
+            if commodity_filter and 'cabai' in commodity_filter.lower():
+                print(f"[DEBUG] {commodity_name}: Top 3 dates = {sorted_dates[:3]}")
+            
+            # Ambil harga terbaru yang ada (bukan hanya hari ini)
             latest_price = None
             latest_date = None
             
@@ -199,7 +218,7 @@ def get_harga_data(province_id: str = '14',
             "data": transformed_data,
             "total": len(transformed_data),
             "data_date": actual_date,
-            "info": f"Data tanggal {actual_date}",
+            "info": f"Data terbaru per {actual_date}",
             "filter_applied": commodity_filter if commodity_filter else None
         }
         
@@ -211,8 +230,6 @@ def get_harga_data(province_id: str = '14',
             "success": False,
             "error": str(e)
         }
-
-
 
 
 # -------------------------------------------------
@@ -296,10 +313,13 @@ def get_cabai_data(province_id: str = '14',
             if not date_keys:
                 continue
             
-            # Sort tanggal dari terbaru ke terlama
-            sorted_dates = sorted(date_keys, key=lambda x: x.split('/')[::-1], reverse=True)
+            # ✅ FIXED: Sort tanggal dengan benar menggunakan _date_sort_key
+            sorted_dates = sorted(date_keys, key=_date_sort_key, reverse=True)
             
-            # ✅ PERBAIKAN: Cari harga terbaru yang tersedia
+            # Debug: Print 5 tanggal teratas untuk setiap cabai
+            print(f"[DEBUG] {commodity_name}: {sorted_dates[:5]}")
+            
+            # Cari harga terbaru yang tersedia
             latest_price = None
             latest_date = None
             
@@ -312,6 +332,7 @@ def get_cabai_data(province_id: str = '14',
                     break
             
             if latest_price is None:
+                print(f"[WARNING] {commodity_name}: No valid price found in {len(sorted_dates)} dates")
                 continue
             
             if actual_date is None:
@@ -352,7 +373,7 @@ def get_cabai_data(province_id: str = '14',
             "total": len(transformed_data),
             "requested": 4,
             "data_date": actual_date,
-            "info": f"Data {len(transformed_data)} jenis cabai - {actual_date}",
+            "info": f"Data terbaru: {actual_date}",
             "missing": list(missing) if missing else None
         }
         
@@ -364,7 +385,7 @@ def get_cabai_data(province_id: str = '14',
             "success": False,
             "error": str(e)
         }
-    
+
 # -------------------------------------------------
 # 🔹 DATA MASTER
 # -------------------------------------------------
@@ -373,10 +394,9 @@ def get_provinces() -> Dict:
     """Ambil daftar provinsi"""
     try:
         url = f"{BASE_URL}/Home/GetProvinceAll"
-        # ✅ FIX: Jangan pakai filter, atau gunakan filter kosong
         
         session = create_session()
-        r = session.get(url, timeout=15)  # Tanpa params
+        r = session.get(url, timeout=15)
         r.raise_for_status()
         raw_data = r.json()
         
