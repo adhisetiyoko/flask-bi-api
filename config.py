@@ -5,11 +5,11 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     
     # Railway MySQL Variables (sudah benar!)
-    MYSQL_HOST = os.getenv("MYSQLHOST", "localhost")
+    MYSQL_HOST = os.getenv("MYSQLHOST", "switchback.proxy.rlwy.net")
     MYSQL_USER = os.getenv("MYSQLUSER", "root")
-    MYSQL_PASSWORD = os.getenv("MYSQLPASSWORD", "")
+    MYSQL_PASSWORD = os.getenv("MYSQLPASSWORD", "pZPecHJjNLcZENpzjNNIIoVtNvBWdPOA")
     MYSQL_DB = os.getenv("MYSQLDATABASE", "railway")
-    MYSQL_PORT = int(os.getenv("MYSQLPORT", "3306"))
+    MYSQL_PORT = int(os.getenv("MYSQLPORT", "48397"))
     
     # Debug
     @staticmethod
