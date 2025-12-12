@@ -108,8 +108,7 @@ def create_user_with_phone(phone, password_hash):
     Buat user baru dengan nomor HP dan password
     Dipanggil SETELAH OTP berhasil diverifikasi dari /register-phone
     
-    HANYA INSERT: no_hp, password, role, status_akun
-    TIDAK INSERT: nama, email (biarkan NULL)
+    INSERT: no_hp, password, nama (NULL), email (NULL), role, status_akun
     """
     try:
         # Format nomor telepon
@@ -135,24 +134,28 @@ def create_user_with_phone(phone, password_hash):
                 'message': 'Nomor HP sudah terdaftar'
             }
         
-        # ✅ Insert user - HANYA no_hp, password, role, status_akun
-        # nama dan email dibiarkan NULL
+        # ✅ Insert user dengan nama dan email NULL
         cursor.execute(
-            '''INSERT INTO users (no_hp, password, role, status_akun) 
-               VALUES (%s, %s, %s, %s)''',
+            '''INSERT INTO users (no_hp, password, nama, email, role, status_akun) 
+               VALUES (%s, %s, %s, %s, %s, %s)''',
             (
-                formatted_phone,        # no_hp
-                password_hash,          # password (sudah di-hash)
-                'pembeli_rumah_tangga',                 # role default
-                'aktif'                 # status aktif setelah verifikasi OTP
+                formatted_phone,
+                password_hash,
+                None,                   # nama = NULL
+                None,                   # email = NULL
+                'pembeli_rumah_tangga',
+                'aktif'
             )
         )
         mysql.connection.commit()
         
         user_id = cursor.lastrowid
         
-        # Get user data yang baru dibuat
-        cursor.execute('SELECT id, no_hp, role, status_akun FROM users WHERE id = %s', (user_id,))
+        # Get user data yang baru dibuat (termasuk nama dan email)
+        cursor.execute(
+            'SELECT id, no_hp, nama, email, role, status_akun FROM users WHERE id = %s', 
+            (user_id,)
+        )
         new_user = cursor.fetchone()
         
         cursor.close()
