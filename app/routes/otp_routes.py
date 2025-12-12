@@ -14,7 +14,7 @@ def send_otp_route():
 
     result = send_otp(phone)
 
-    return jsonify(result)
+    return jsonify({"message": "OTP sent", "result": result})
 
 # TAMBAHKAN ROUTE INI ✅
 @otp_bp.route('/verify-otp', methods=['POST'])
