@@ -1,3 +1,4 @@
+# app/routes/otp_routes.py
 from flask import Blueprint, request, jsonify
 from app.services.otp_service import send_otp , verify_otp
 
@@ -13,7 +14,7 @@ def send_otp_route():
 
     result = send_otp(phone)
 
-    return jsonify({"message": "OTP sent", "result": result})
+    return jsonify(result)
 
 # TAMBAHKAN ROUTE INI ✅
 @otp_bp.route('/verify-otp', methods=['POST'])
