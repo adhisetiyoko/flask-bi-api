@@ -5,10 +5,6 @@ __pycache__/
 # Environment
 .env
 
-# Upload folders
-uploads/
-app/uploads/
-
 # Virtual environment
 venv/
 ENV/

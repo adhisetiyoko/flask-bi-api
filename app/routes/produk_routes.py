@@ -338,7 +338,6 @@ def get_produk_detail(produk_id):
 
 # ==================== UPDATE ====================
 # Ganti endpoint UPDATE di file: app/routes/produk_routes.py
-
 @produk_bp.route('/produk/<int:produk_id>', methods=['PUT'])
 def update_produk(produk_id):
     """
@@ -653,6 +652,155 @@ def get_my_produk():
 
     except Exception as e:
         print(f"❌ Error in get_my_produk: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
+
+
+# ==================== POPULAR PRODUCTS ====================
+@produk_bp.route('/popular-products', methods=['GET'])
+def get_popular_products():
+    """
+    Endpoint untuk mendapatkan produk populer dari semua petani
+    Untuk ditampilkan di homepage
+    """
+    try:
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        query = """
+            SELECT p.*, 
+                   u.nama as nama_petani,
+                   u.no_hp as kontak_petani,
+                   t.nama_toko,
+                   t.alamat_toko,
+                   t.jasa_pengiriman
+            FROM produk p
+            LEFT JOIN users u ON p.id_petani = u.id
+            LEFT JOIN toko t ON u.id = t.id_user
+            WHERE p.status_produk = 'aktif'
+            ORDER BY p.tanggal_upload DESC
+            LIMIT 8
+        """
+
+        cursor.execute(query)
+        produk_list = cursor.fetchall()
+        cursor.close()
+
+        # Format data
+        for produk in produk_list:
+            # Split foto paths
+            if produk['foto']:
+                produk['foto'] = produk['foto'].split(',')
+            else:
+                produk['foto'] = []
+
+            # Format harga dan stok
+            produk['harga_per_kg'] = float(produk['harga_per_kg'])
+            produk['stok'] = float(produk['stok'])
+
+        print(f"✅ Popular products loaded: {len(produk_list)} items")
+
+        return jsonify({
+            'success': True,
+            'data': produk_list,
+            'total': len(produk_list)
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Error in get_popular_products: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
+
+
+# ==================== ALL PRODUCTS (PUBLIC) ====================
+@produk_bp.route('/all-products', methods=['GET'])
+def get_all_products_public():
+    """
+    Endpoint untuk mendapatkan semua produk aktif dari semua petani
+    Untuk catalog/browse products
+    """
+    try:
+        # Ambil query parameters untuk filtering
+        jenis_cabai = request.args.get('jenis_cabai')
+        min_price = request.args.get('min_price')
+        max_price = request.args.get('max_price')
+        sort_by = request.args.get('sort_by', 'terbaru')  # terbaru, termurah, termahal
+        limit = int(request.args.get('limit', 20))
+
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+        # Build query
+        query = """
+            SELECT p.*, 
+                   u.nama as nama_petani,
+                   u.no_hp as kontak_petani,
+                   t.nama_toko,
+                   t.alamat_toko,
+                   t.jasa_pengiriman
+            FROM produk p
+            LEFT JOIN users u ON p.id_petani = u.id
+            LEFT JOIN toko t ON u.id = t.id_user
+            WHERE p.status_produk = 'aktif'
+        """
+        params = []
+
+        # Filter jenis cabai
+        if jenis_cabai:
+            query += " AND p.nama_produk LIKE %s"
+            params.append(f"%{jenis_cabai}%")
+
+        # Filter harga minimum
+        if min_price:
+            query += " AND p.harga_per_kg >= %s"
+            params.append(float(min_price))
+
+        # Filter harga maksimum
+        if max_price:
+            query += " AND p.harga_per_kg <= %s"
+            params.append(float(max_price))
+
+        # Sorting
+        if sort_by == 'termurah':
+            query += " ORDER BY p.harga_per_kg ASC"
+        elif sort_by == 'termahal':
+            query += " ORDER BY p.harga_per_kg DESC"
+        else:  # terbaru (default)
+            query += " ORDER BY p.tanggal_upload DESC"
+
+        # Limit
+        query += f" LIMIT {limit}"
+
+        cursor.execute(query, params)
+        produk_list = cursor.fetchall()
+        cursor.close()
+
+        # Format data
+        for produk in produk_list:
+            if produk['foto']:
+                produk['foto'] = produk['foto'].split(',')
+            else:
+                produk['foto'] = []
+
+            produk['harga_per_kg'] = float(produk['harga_per_kg'])
+            produk['stok'] = float(produk['stok'])
+
+        print(f"✅ All products loaded: {len(produk_list)} items")
+
+        return jsonify({
+            'success': True,
+            'data': produk_list,
+            'total': len(produk_list)
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Error in get_all_products_public: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': f'Error: {str(e)}'
