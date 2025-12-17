@@ -1,6 +1,5 @@
 # app/extensions.py
-# from flask_mysqldb import MySQL
-from flaskext.mysql import MySQL
+from flask_mysqldb import MySQL
 from flask_cors import CORS
 
 # Initialize extensions

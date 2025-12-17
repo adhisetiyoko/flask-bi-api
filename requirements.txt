@@ -1,12 +1,9 @@
 # requirements.txt
-flask
-flask-cors
-requests
-gunicorn
-
 Flask==3.0.0
+flask-cors==4.0.0
 flask-mysqldb==2.0.0
 bcrypt==4.1.2
-flask-cors==4.0.0
 python-dotenv==1.0.0
 pymysql==1.1.2
+gunicorn==21.2.0
+requests==2.31.0
