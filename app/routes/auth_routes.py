@@ -1,7 +1,7 @@
 # File: app/routes/auth_routes.py
 
 from flask import Blueprint, request, jsonify
-import MySQLdb.cursors
+# import MySQLdb.cursors
 import bcrypt
 from app.extensions import mysql
 from app.services.otp_service import create_user_with_phone  # ← Import fungsi baru
@@ -22,7 +22,7 @@ def register():
     if not all([nama, email, password]):
         return jsonify({'message': 'Data tidak lengkap'}), 400
     
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor = mysql.connection.cursor()
     cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
     existing_user = cursor.fetchone()
     
@@ -92,7 +92,7 @@ def login():
     if not all([email, password]):
         return jsonify({'message': 'Data tidak lengkap'}), 400
     
-    cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cursor = mysql.connection.cursor()
     cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
     user = cursor.fetchone()
     cursor.close()
@@ -107,11 +107,18 @@ def login():
         return jsonify({'message': 'Password salah!'}), 401
 
 # 🔹 Login dengan Phone
+# 🔹 Login dengan Phone
 @auth_bp.route('/login-phone', methods=['POST'])
 def login_phone():
     data = request.get_json()
     phone = data.get('phone')
     password = data.get('password')
+    
+    print(f"\n{'='*70}")
+    print(f"📱 LOGIN ATTEMPT")
+    print(f"Phone: {phone}")
+    print(f"Password length: {len(password) if password else 0}")
+    print(f"{'='*70}")
     
     if not all([phone, password]):
         return jsonify({
@@ -120,44 +127,119 @@ def login_phone():
         }), 400
     
     try:
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM users WHERE no_hp = %s', (phone,))
+        # Format phone number
+        formatted_phone = phone
+        if phone.startswith('0'):
+            formatted_phone = '62' + phone[1:]
+        elif phone.startswith('+62'):
+            formatted_phone = phone[1:]
+        elif not phone.startswith('62'):
+            formatted_phone = '62' + phone
+        
+        print(f"🔍 Formatted phone: {formatted_phone}")
+        
+        cursor = mysql.connection.cursor()
+        cursor.execute('SELECT * FROM users WHERE no_hp = %s', (formatted_phone,))
         user = cursor.fetchone()
         cursor.close()
         
         if not user:
+            print(f"❌ User not found")
+            print(f"{'='*70}\n")
             return jsonify({
                 'success': False,
                 'message': 'Nomor HP tidak ditemukan!'
             }), 404
         
-        # Cek apakah user sudah terverifikasi
+        print(f"✅ User found:")
+        print(f"   ID: {user.get('id')}")
+        print(f"   Nama: {user.get('nama')}")
+        print(f"   Status: {user.get('status_akun')}")
+        print(f"   Password exists: {bool(user.get('password'))}")
+        
+        if user.get('password'):
+            pwd = user.get('password')
+            print(f"   Password length: {len(pwd)}")
+            print(f"   Password starts: {pwd[:10]}...")
+            print(f"   Password format: {'✅ bcrypt' if pwd.startswith('$2b$') or pwd.startswith('$2y$') else '❌ invalid'}")
+        
+        # Cek password field
+        if not user.get('password'):
+            print(f"❌ Password is NULL")
+            print(f"{'='*70}\n")
+            return jsonify({
+                'success': False,
+                'message': 'Password belum diatur. Silakan reset password.'
+            }), 400
+        
+        # Cek status akun
         if user.get('status_akun') == 'perlu_verifikasi':
+            print(f"⚠️ Account not verified")
+            print(f"{'='*70}\n")
             return jsonify({
                 'success': False,
                 'message': 'Akun belum diverifikasi. Silakan verifikasi OTP terlebih dahulu.'
             }), 403
         
-        # Cek password
-        if user.get('password') and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-            user.pop('password')  # Hapus password dari response
-            return jsonify({
-                'success': True,
-                'message': 'Login sukses!',
-                'user': user
-            }), 200
-        else:
+        # Verify password
+        try:
+            stored_password = user['password']
+            
+            # Ensure it's bytes for bcrypt
+            if isinstance(stored_password, str):
+                stored_password_bytes = stored_password.encode('utf-8')
+            else:
+                stored_password_bytes = stored_password
+            
+            print(f"🔐 Checking password...")
+            
+            if bcrypt.checkpw(password.encode('utf-8'), stored_password_bytes):
+                user.pop('password', None)
+                print(f"✅ Login successful")
+                print(f"{'='*70}\n")
+                return jsonify({
+                    'success': True,
+                    'message': 'Login sukses!',
+                    'user': user
+                }), 200
+            else:
+                print(f"❌ Password mismatch")
+                print(f"{'='*70}\n")
+                return jsonify({
+                    'success': False,
+                    'message': 'Password salah!'
+                }), 401
+                
+        except ValueError as ve:
+            print(f"❌ BCRYPT ERROR (invalid salt): {str(ve)}")
+            print(f"   This means the password hash is corrupted or invalid")
+            print(f"   Stored password: {user.get('password', '')[:50]}...")
+            print(f"{'='*70}\n")
             return jsonify({
                 'success': False,
-                'message': 'Password salah!'
-            }), 401
+                'message': 'Password tidak valid. Silakan hubungi admin atau daftar ulang.'
+            }), 400
+        except Exception as ex:
+            print(f"❌ EXCEPTION: {str(ex)}")
+            import traceback
+            traceback.print_exc()
+            print(f"{'='*70}\n")
+            return jsonify({
+                'success': False,
+                'message': f'Error: {str(ex)}'
+            }), 500
             
     except Exception as e:
+        print(f"💥 OUTER EXCEPTION: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        print(f"{'='*70}\n")
         return jsonify({
             'success': False,
-            'message': f'Error: {str(e)}'
+            'message': f'Server error: {str(e)}'
         }), 500
-
+    
+    
 # 🔹 Test database connection
 @auth_bp.route('/test-db', methods=['GET'])
 def test_db():
