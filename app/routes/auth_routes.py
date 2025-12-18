@@ -1,7 +1,7 @@
 # File: app/routes/auth_routes.py
 
 from flask import Blueprint, request, jsonify
-# import MySQLdb.cursors
+import MySQLdb.cursors
 import bcrypt
 from app.extensions import mysql
 from app.services.otp_service import create_user_with_phone  # ← Import fungsi baru
@@ -107,7 +107,6 @@ def login():
         return jsonify({'message': 'Password salah!'}), 401
 
 # 🔹 Login dengan Phone
-# 🔹 Login dengan Phone
 @auth_bp.route('/login-phone', methods=['POST'])
 def login_phone():
     data = request.get_json()
@@ -138,7 +137,8 @@ def login_phone():
         
         print(f"🔍 Formatted phone: {formatted_phone}")
         
-        cursor = mysql.connection.cursor()
+        # ✅ PERBAIKAN: Gunakan DictCursor
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT * FROM users WHERE no_hp = %s', (formatted_phone,))
         user = cursor.fetchone()
         cursor.close()
@@ -238,7 +238,6 @@ def login_phone():
             'success': False,
             'message': f'Server error: {str(e)}'
         }), 500
-    
     
 # 🔹 Test database connection
 @auth_bp.route('/test-db', methods=['GET'])
