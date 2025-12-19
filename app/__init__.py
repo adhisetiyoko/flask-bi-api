@@ -2,6 +2,7 @@
 from flask import Flask, send_from_directory
 from app.extensions import mysql, cors
 import os
+from app.routes.keranjang_routes import keranjang_bp
 
 def create_app(config_name=None):
     """Application factory function"""
@@ -56,6 +57,7 @@ def create_app(config_name=None):
         app.register_blueprint(otp_bp)
         app.register_blueprint(produk_bp, url_prefix="/api")
         app.register_blueprint(toko_bp, url_prefix="/toko")
+        app.register_blueprint(keranjang_bp, url_prefix='/api')
         
         print("✅ All blueprints registered")
     except Exception as e:
