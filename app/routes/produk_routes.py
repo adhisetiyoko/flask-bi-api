@@ -18,14 +18,20 @@ def allowed_file(filename):
 # ✅ HELPER FUNCTION YANG DIPERBAIKI
 def get_current_user():
     """
-    Ambil user berdasarkan X-User-Id header
+    Helper function untuk mendapatkan user yang sedang login
+    dari header X-User-Id
     """
     user_id = request.headers.get('X-User-Id')
     
-    print(f"🔍 Checking user_id from header: {user_id}")
+    print(f"\n{'='*60}")
+    print(f"GET CURRENT USER")
+    print(f"{'='*60}")
+    print(f"X-User-Id from header: {user_id}")
     
     if not user_id:
-        print("❌ No X-User-Id header found")
+        print(f"❌ No X-User-Id in headers")
+        print(f"Headers: {dict(request.headers)}")
+        print(f"{'='*60}\n")
         return None
     
     try:
@@ -35,15 +41,18 @@ def get_current_user():
         cursor.close()
         
         if user:
-            print(f"✅ User found: {user['nama']} (role: {user['role']})")
+            print(f"✅ User found: {user.get('id')} - {user.get('nama')}")
+            print(f"   Role: {user.get('role')}")
         else:
-            print(f"❌ No user found with id: {user_id}")
+            print(f"❌ User not found in database")
         
+        print(f"{'='*60}\n")
         return user
+        
     except Exception as e:
-        print(f"❌ Error in get_current_user: {e}")
+        print(f"❌ Error: {e}")
+        print(f"{'='*60}\n")
         return None
-
 
 # ==================== CREATE ====================
 @produk_bp.route('/produk', methods=['POST'])
@@ -603,60 +612,79 @@ def delete_produk(produk_id):
 
 # ==================== MY PRODUCTS ====================
 @produk_bp.route('/produk/saya', methods=['GET'])
+@produk_bp.route('/produk/saya', methods=['GET'])
 def get_my_produk():
     """
-    Endpoint untuk mendapatkan daftar produk milik petani yang login
+    Endpoint untuk mendapatkan daftar produk milik user yang login
     """
     try:
         # Get current user
         current_user = get_current_user()
+        
         if not current_user:
             return jsonify({
                 'success': False,
                 'message': 'User tidak terautentikasi'
             }), 401
-
-        if current_user['role'] != 'petani':
-            return jsonify({
-                'success': False,
-                'message': 'Endpoint ini hanya untuk petani'
-            }), 403
-
+        
+        # ✅ HAPUS ROLE CHECKING INI (atau ubah logikanya)
+        # if current_user['role'] != 'petani':
+        #     return jsonify({
+        #         'success': False,
+        #         'message': 'Endpoint ini hanya untuk petani'
+        #     }), 403
+        
+        print(f"\n{'='*60}")
+        print(f"GET MY PRODUK")
+        print(f"{'='*60}")
+        print(f"User ID: {current_user['id']}")
+        print(f"User role: {current_user.get('role')}")
+        print(f"User nama: {current_user.get('nama')}")
+        
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-
+        
+        # Query produk berdasarkan id_petani
         query = """
             SELECT * FROM produk 
             WHERE id_petani = %s 
             ORDER BY tanggal_upload DESC
         """
-
+        
+        print(f"Query: {query}")
+        print(f"Params: {current_user['id']}")
+        
         cursor.execute(query, (current_user['id'],))
         produk_list = cursor.fetchall()
         cursor.close()
-
+        
+        print(f"✅ Found {len(produk_list)} products")
+        
         # Format data
         for produk in produk_list:
             if produk['foto']:
                 produk['foto'] = produk['foto'].split(',')
             else:
                 produk['foto'] = []
-
+            
             produk['harga_per_kg'] = float(produk['harga_per_kg'])
             produk['stok'] = float(produk['stok'])
-
+        
+        print(f"{'='*60}\n")
+        
         return jsonify({
             'success': True,
             'data': produk_list,
             'total': len(produk_list)
         }), 200
-
+        
     except Exception as e:
         print(f"❌ Error in get_my_produk: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': f'Error: {str(e)}'
         }), 500
-
 
 # ==================== POPULAR PRODUCTS ====================
 @produk_bp.route('/popular-products', methods=['GET'])
